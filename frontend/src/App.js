@@ -9,26 +9,52 @@ function App() {
     tratamiento: '',
     observaciones: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   // Obtener lista de pacientes al cargar
   useEffect(() => {
     const fetchPacientes = async () => {
-      const response = await axios.get('http://localhost:5000/pacientes');
-      setPacientes(response.data);
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await axios.get('http://localhost:5000/pacientes');
+        setPacientes(response.data || []);
+      } catch (err) {
+        console.error('Error al obtener pacientes:', err.message || err);
+        setError('No se pudieron cargar los pacientes. Revisa que el servidor esté corriendo en http://localhost:5000');
+      } finally {
+        setLoading(false);
+      }
     };
     fetchPacientes();
   }, []);
 
   // Registrar nuevo paciente
   const agregarPaciente = async () => {
-    const response = await axios.post('http://localhost:5000/pacientes', nuevoPaciente);
-    setPacientes([...pacientes, response.data]);
-    setNuevoPaciente({ nombre: '', telefono: '', tratamiento: '', observaciones: '' });
+    // validación mínima
+    if (!nuevoPaciente.nombre) {
+      setError('El nombre es obligatorio');
+      return;
+    }
+
+    setError(null);
+    try {
+      const response = await axios.post('http://localhost:5000/pacientes', nuevoPaciente);
+      // algunos servidores devuelven el recurso creado o la lista actualizada
+      const creado = response && response.data ? response.data : nuevoPaciente;
+      setPacientes((prev) => [...prev, creado]);
+      setNuevoPaciente({ nombre: '', telefono: '', tratamiento: '', observaciones: '' });
+    } catch (err) {
+      console.error('Error al registrar paciente:', err.message || err);
+      setError('No se pudo registrar el paciente. Revisa la conexión con el servidor.');
+    }
   };
 
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial' }}>
       <h1>🦷 Sistema de Gestión de Pacientes - Sonrisa Perfecta</h1>
+
       <div style={{ marginBottom: '10px' }}>
         <input
           placeholder="Nombre completo"
@@ -52,6 +78,9 @@ function App() {
         />
         <button onClick={agregarPaciente}>Registrar Paciente</button>
       </div>
+
+      {loading && <div>Cargando pacientes...</div>}
+      {error && <div style={{ color: 'red' }}>{error}</div>}
 
       <h2>Pacientes Registrados</h2>
       <ul>
